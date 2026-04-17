@@ -53,7 +53,9 @@ winget install Gyan.FFmpeg
 
 ### Étape 3 — Télécharger YumsCUT
 
-Cliquez sur le bouton vert **Code → Download ZIP** sur cette page, puis décompressez l'archive où vous voulez.
+Téléchargez la dernière version : **[YumsCUT.zip](https://github.com/trueYums/YumsCUT/releases/latest/download/YumsCUT.zip)**
+
+Décompressez l'archive où vous voulez.
 
 ### Étape 4 — Lancer le setup
 
