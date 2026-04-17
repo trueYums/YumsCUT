@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  converter:
+    build: .
+    container_name: yt-tiktok-converter
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - videodata:/data
+    env_file:
+      - .env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  videodata:
+    name: yt-tiktok-videodata

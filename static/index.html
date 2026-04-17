@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a14" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>YumsCUT</title>
+  <style>
+    /* ------------------------------------------------------------------ */
+    /* Reset & base                                                         */
+    /* ------------------------------------------------------------------ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a14;
+      --surface:   #12121e;
+      --surface2:  #1a1a2e;
+      --border:    #2a2a42;
+      --accent:    #7c3aed;
+      --accent-h:  #9d5cf6;
+      --accent-dim:#3d1f7a;
+      --green:     #10b981;
+      --red:       #ef4444;
+      --amber:     #f59e0b;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --radius:    14px;
+      --font:      -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+
+    html { background: var(--bg); color: var(--text); font-family: var(--font); }
+
+    body {
+      min-height: 100dvh;
+      padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+               env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+      padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Layout                                                               */
+    /* ------------------------------------------------------------------ */
+    .app { max-width: 520px; margin: 0 auto; padding: 0 16px; }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 0 8px;
+      gap: 12px;
+    }
+
+    .logo-wrap { display: flex; flex-direction: column; gap: 1px; }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1.1;
+    }
+    .logo span { color: var(--accent); }
+
+    .tagline {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+
+    section { margin-top: 24px; }
+    h2 {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Input form                                                           */
+    /* ------------------------------------------------------------------ */
+    .url-form { display: flex; flex-direction: column; gap: 10px; }
+
+    input[type="url"], input[type="text"] {
+      width: 100%;
+      padding: 14px 16px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 16px;
+      font-family: var(--font);
+      outline: none;
+      -webkit-appearance: none;
+      transition: border-color .15s;
+    }
+    input[type="url"]:focus, input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+    input::placeholder { color: var(--muted); }
+    input:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      -webkit-text-fill-color: var(--muted);
+    }
+
+    .btn {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 15px;
+      border: none; border-radius: var(--radius);
+      font-size: 16px; font-weight: 600;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity .15s, background .15s;
+    }
+    .btn:active { opacity: .8; }
+    .btn-primary   { background: var(--accent); color: #fff; }
+    .btn-primary:disabled { background: var(--accent-dim); cursor: not-allowed; opacity: .6; }
+    .btn-secondary { background: var(--surface2); color: var(--text); }
+    .btn-danger    { background: #2d1515; color: var(--red); }
+    .btn-sm {
+      padding: 9px 14px;
+      font-size: 14px;
+      border-radius: 10px;
+      width: auto;
+    }
+
+    /* Push banner */
+    .push-banner {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .push-banner .icon { font-size: 20px; flex-shrink: 0; }
+    .push-banner .text { flex: 1; line-height: 1.4; }
+    .push-banner .text strong { color: var(--text); }
+
+    /* Error / info messages */
+    .msg {
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .msg-error   { background: #2d1515; color: var(--red); border: 1px solid #5a1f1f; }
+    .msg-success { background: #0d2820; color: var(--green); border: 1px solid #1a4d35; }
+    .msg-info    { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+
+    /* ------------------------------------------------------------------ */
+    /* Job cards                                                            */
+    /* ------------------------------------------------------------------ */
+    .card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 10px;
+    }
+
+    .job-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .job-title  { font-size: 15px; font-weight: 600; line-height: 1.35; flex: 1; }
+    .job-url    { font-size: 12px; color: var(--muted); margin-top: 3px;
+                  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 3px 9px; border-radius: 20px;
+      font-size: 12px; font-weight: 600;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .badge-pending    { background: #1c1c0d; color: var(--amber); }
+    .badge-dl         { background: #0d1a2d; color: #60a5fa; }
+    .badge-processing { background: #1a0d2d; color: var(--accent-h); }
+    .badge-done       { background: #0d2820; color: var(--green); }
+    .badge-error      { background: #2d1515; color: var(--red); }
+    .badge-cancelled  { background: #1a1a1a; color: var(--muted); }
+
+    .progress-bar-wrap {
+      height: 5px; background: var(--border); border-radius: 3px;
+      margin-top: 12px; overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-h));
+      transition: width .4s ease;
+    }
+    .progress-bar.indeterminate {
+      width: 40% !important;
+      animation: indeterminate 1.4s infinite ease-in-out;
+    }
+    @keyframes indeterminate {
+      0%   { transform: translateX(-150%); }
+      100% { transform: translateX(350%); }
+    }
+
+    .job-msg { font-size: 13px; color: var(--muted); margin-top: 8px; }
+    .job-error-msg { font-size: 13px; color: var(--red); margin-top: 8px; line-height: 1.4; }
+
+    /* ------------------------------------------------------------------ */
+    /* File cards                                                           */
+    /* ------------------------------------------------------------------ */
+    .file-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+
+    .file-top { display: flex; align-items: flex-start; gap: 10px; }
+    .file-icon { font-size: 28px; flex-shrink: 0; line-height: 1; margin-top: 2px; }
+    .file-info { flex: 1; min-width: 0; }
+    .file-name {
+      font-size: 15px; font-weight: 600; line-height: 1.35;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .file-sub  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .expiry-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 20px;
+      font-size: 12px; font-weight: 600;
+      background: #2d1a00; color: var(--amber);
+      white-space: nowrap; flex-shrink: 0; margin-top: 2px;
+    }
+    .expiry-badge.urgent { background: #2d1515; color: var(--red); }
+
+    .file-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .file-actions .btn-sm { flex: 1; }
+
+    /* ------------------------------------------------------------------ */
+    /* Empty states                                                         */
+    /* ------------------------------------------------------------------ */
+    .empty {
+      text-align: center; padding: 32px 16px;
+      color: var(--muted); font-size: 14px; line-height: 1.6;
+    }
+    .empty .emoji { font-size: 36px; display: block; margin-bottom: 10px; }
+
+    /* ------------------------------------------------------------------ */
+    /* Cancel button inside job card                                        */
+    /* ------------------------------------------------------------------ */
+    .job-cancel-btn {
+      margin-top: 10px;
+      padding: 8px 14px;
+      background: transparent;
+      border: 1px solid #5a1f1f;
+      border-radius: 8px;
+      color: var(--red);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .15s;
+    }
+    .job-cancel-btn:active { background: #2d1515; }
+    .job-cancel-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ------------------------------------------------------------------ */
+    /* Footer                                                               */
+    /* ------------------------------------------------------------------ */
+    .footer {
+      text-align: center;
+      padding: 32px 0 16px;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: .03em;
+    }
+    .footer strong { color: var(--text); font-weight: 600; }
+
+    /* ------------------------------------------------------------------ */
+    /* Hidden utility                                                       */
+    /* ------------------------------------------------------------------ */
+    [hidden] { display: none !important; }
+
+    /* ------------------------------------------------------------------ */
+    /* Spinner                                                              */
+    /* ------------------------------------------------------------------ */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-wrap">
+      <div class="logo">Yums<span>CUT</span></div>
+      <div class="tagline">Développé par Yums</div>
+    </div>
+  </header>
+
+  <!-- ---------------------------------------------------------------- -->
+  <!-- URL input                                                          -->
+  <!-- ---------------------------------------------------------------- -->
+  <section>
+    <div class="url-form">
+      <input
+        type="url"
+        id="url-input"
+        placeholder="Coller une URL YouTube…"
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+      />
+      <button class="btn btn-primary" id="launch-btn">
+        Lancer le traitement
+      </button>
+      <div id="form-msg" hidden></div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <!-- Jobs                                                               -->
+  <!-- ---------------------------------------------------------------- -->
+  <section id="jobs-section" hidden>
+    <h2>En cours</h2>
+    <div id="jobs-list"></div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <!-- Files                                                              -->
+  <!-- ---------------------------------------------------------------- -->
+  <section>
+    <h2>Mes vidéos</h2>
+    <div id="files-list">
+      <div class="empty">
+        <span class="emoji">🎬</span>
+        Aucune vidéo disponible.<br>Collez une URL YouTube ci-dessus pour commencer.
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <strong>YumsCUT</strong> &mdash; Outil de découpe vidéo<br>
+    Conçu &amp; développé par <strong>Yums</strong>
+  </footer>
+
+</div><!-- /.app -->
+
+<script>
+/* ===================================================================
+   UTILITIES
+   =================================================================== */
+
+function uuid() {
+  if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  // Fallback
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const base64 = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from(Array.from(raw, (c) => c.charCodeAt(0)));
+}
+
+function formatCountdown(expiresAt) {
+  const now = Date.now();
+  const exp = new Date(expiresAt.endsWith('Z') ? expiresAt : expiresAt + 'Z').getTime();
+  const diff = exp - now;
+  if (diff <= 0) return 'Expiré';
+  const h = Math.floor(diff / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  if (h > 0) return `${h}h ${m}min`;
+  if (m > 0) return `${m} min`;
+  return '< 1 min';
+}
+
+function isUrgent(expiresAt) {
+  const diff = new Date(expiresAt.endsWith('Z') ? expiresAt : expiresAt + 'Z').getTime() - Date.now();
+  return diff < 3_600_000; // < 1 h
+}
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function truncate(str, n) {
+  return str.length > n ? str.slice(0, n) + '…' : str;
+}
+
+/* ===================================================================
+   SESSION
+   =================================================================== */
+
+const SESSION_KEY = 'yt_tiktok_session_id';
+
+function getSession() {
+  let id = localStorage.getItem(SESSION_KEY);
+  if (!id) {
+    id = uuid();
+    localStorage.setItem(SESSION_KEY, id);
+  }
+  return id;
+}
+
+const SESSION_ID = getSession();
+
+/* ===================================================================
+   JOB PERSISTENCE & FORM LOCK
+   One job at a time. Active job ID is persisted in localStorage so
+   a page refresh restores the locked state and resumes polling.
+   =================================================================== */
+
+const ACTIVE_JOB_KEY = 'yt_tiktok_active_job';
+
+function saveActiveJob(jobId) { localStorage.setItem(ACTIVE_JOB_KEY, jobId); }
+function clearActiveJob()     { localStorage.removeItem(ACTIVE_JOB_KEY); }
+function getStoredActiveJob() { return localStorage.getItem(ACTIVE_JOB_KEY); }
+
+function lockForm(label = 'Traitement en cours…') {
+  const input = document.getElementById('url-input');
+  const btn   = document.getElementById('launch-btn');
+  input.disabled = true;
+  btn.disabled   = true;
+  btn.innerHTML  = `<span class="spinner"></span> ${label}`;
+}
+
+function unlockForm() {
+  const input = document.getElementById('url-input');
+  const btn   = document.getElementById('launch-btn');
+  input.disabled = false;
+  btn.disabled   = false;
+  btn.textContent = 'Lancer le traitement';
+}
+
+/* ===================================================================
+   API
+   =================================================================== */
+
+async function apiRequest(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const resp = await fetch(path, opts);
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+    throw new Error(err.detail || `HTTP ${resp.status}`);
+  }
+  return resp.json();
+}
+
+/* ===================================================================
+   JOB MANAGEMENT
+   =================================================================== */
+
+// { jobId: { data, intervalId } }
+const activeJobs = new Map();
+
+function statusBadge(status) {
+  const map = {
+    pending:    ['badge-pending',    '⏳ En attente'],
+    downloading:['badge-dl',         '⬇️ Téléchargement'],
+    processing: ['badge-processing', '⚙️ Encodage'],
+    done:       ['badge-done',       '✅ Terminé'],
+    error:      ['badge-error',      '❌ Erreur'],
+    cancelled:  ['badge-cancelled',  '🚫 Annulé'],
+  };
+  const [cls, label] = map[status] || ['badge-pending', status];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function progressPct(job) {
+  if (job.status === 'done') return 100;
+  if (!job.total_parts || !job.current_part) return null; // indeterminate
+  return Math.round((job.current_part / job.total_parts) * 100);
+}
+
+function renderJobCard(job) {
+  const pct = progressPct(job);
+  const isIndeterminate = pct === null && (job.status === 'downloading' || job.status === 'processing' || job.status === 'pending');
+  const showBar = job.status !== 'done' && job.status !== 'error';
+
+  const titleHtml = job.title
+    ? `<div class="job-title">${esc(truncate(job.title, 60))}</div>`
+    : `<div class="job-title" style="color:var(--muted);font-weight:400">Récupération du titre…</div>`;
+
+  const msgHtml = job.status === 'error'
+    ? `<div class="job-error-msg">⚠ ${esc(job.error || 'Erreur inconnue')}</div>`
+    : job.progress_message
+      ? `<div class="job-msg">${esc(job.progress_message)}</div>`
+      : '';
+
+  const barHtml = showBar ? `
+    <div class="progress-bar-wrap">
+      <div class="progress-bar${isIndeterminate ? ' indeterminate' : ''}"
+           style="width:${isIndeterminate ? '40' : (pct ?? 0)}%"></div>
+    </div>` : '';
+
+  const isActive = ['pending', 'downloading', 'processing'].includes(job.status);
+  const cancelHtml = isActive
+    ? `<button class="job-cancel-btn" id="cancel-btn-${job.job_id}" onclick="cancelJob('${job.job_id}')">✕ Annuler</button>`
+    : '';
+
+  return `
+    <div class="card" id="job-${job.job_id}">
+      <div class="job-header">
+        <div style="flex:1;min-width:0">
+          ${titleHtml}
+          <div class="job-url">${esc(truncate(job.url, 60))}</div>
+        </div>
+        ${statusBadge(job.status)}
+      </div>
+      ${barHtml}
+      ${msgHtml}
+      ${cancelHtml}
+    </div>`;
+}
+
+function upsertJobCard(job) {
+  const list = document.getElementById('jobs-list');
+  const existing = document.getElementById(`job-${job.job_id}`);
+  const html = renderJobCard(job);
+
+  if (existing) {
+    existing.outerHTML = html;
+  } else {
+    list.insertAdjacentHTML('afterbegin', html);
+  }
+
+  document.getElementById('jobs-section').hidden = false;
+}
+
+function removeJobCard(jobId) {
+  const el = document.getElementById(`job-${jobId}`);
+  if (el) el.remove();
+  if (document.getElementById('jobs-list').children.length === 0) {
+    document.getElementById('jobs-section').hidden = true;
+  }
+}
+
+async function pollJob(jobId) {
+  try {
+    const job = await apiRequest('GET', `/api/jobs/${jobId}?session_id=${SESSION_ID}`);
+    upsertJobCard(job);
+
+    if (job.status === 'done' || job.status === 'error' || job.status === 'cancelled') {
+      const entry = activeJobs.get(jobId);
+      if (entry) clearInterval(entry.intervalId);
+      activeJobs.delete(jobId);
+      clearActiveJob();
+      unlockForm();
+      hideFormMsg();
+
+      if (job.status === 'done') {
+        await loadFiles();
+        setTimeout(() => removeJobCard(jobId), 4000);
+      } else if (job.status === 'cancelled') {
+        setTimeout(() => removeJobCard(jobId), 3000);
+      }
+    }
+  } catch (err) {
+    console.error('Poll error for job', jobId, err);
+  }
+}
+
+// Internal: start polling without touching form state (used for restore on refresh)
+function _startPolling(jobId) {
+  const intervalId = setInterval(() => pollJob(jobId), 3000);
+  activeJobs.set(jobId, { intervalId });
+  pollJob(jobId);
+}
+
+// Public: called when user submits a new job
+function trackJob(jobId) {
+  lockForm();
+  saveActiveJob(jobId);
+  _startPolling(jobId);
+}
+
+async function cancelJob(jobId) {
+  const btn = document.getElementById(`cancel-btn-${jobId}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Annulation…'; }
+  try {
+    await apiRequest('POST', `/api/jobs/${jobId}/cancel?session_id=${SESSION_ID}`);
+    // Immediate feedback — don't wait for the next poll
+    const entry = activeJobs.get(jobId);
+    if (entry) clearInterval(entry.intervalId);
+    activeJobs.delete(jobId);
+    clearActiveJob();
+    unlockForm();
+    showFormMsg('info', 'Traitement annulé.');
+    setTimeout(() => { removeJobCard(jobId); hideFormMsg(); }, 2000);
+  } catch (err) {
+    showFormMsg('error', `Impossible d'annuler : ${err.message}`);
+    if (btn) { btn.disabled = false; btn.textContent = '✕ Annuler'; }
+  }
+}
+
+/* ===================================================================
+   FILE LIST
+   =================================================================== */
+
+let countdownTimer = null;
+
+function renderFileCard(file) {
+  const label = file.title
+    ? `${truncate(file.title, 45)} — Partie ${file.part_number}/${file.total_parts}`
+    : file.filename;
+
+  const countdown = formatCountdown(file.expires_at);
+  const urgent = isUrgent(file.expires_at);
+
+  return `
+    <div class="file-card" id="file-${file.file_id}">
+      <div class="file-top">
+        <div class="file-icon">🎞</div>
+        <div class="file-info">
+          <div class="file-name" title="${esc(label)}">${esc(truncate(label, 55))}</div>
+          <div class="file-sub">Partie ${file.part_number} sur ${file.total_parts}</div>
+        </div>
+        <div class="expiry-badge${urgent ? ' urgent' : ''}" id="expiry-${file.file_id}">
+          ⏱ ${esc(countdown)}
+        </div>
+      </div>
+      <div class="file-actions">
+        <button class="btn btn-secondary btn-sm" onclick="downloadFile('${file.file_id}')">
+          ⬇️ Télécharger
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="deleteFile('${file.file_id}')">
+          🗑 Supprimer
+        </button>
+      </div>
+    </div>`;
+}
+
+let _allFiles = [];
+
+async function loadFiles() {
+  try {
+    const files = await apiRequest('GET', `/api/files?session_id=${SESSION_ID}`);
+    _allFiles = files;
+    renderFiles(files);
+  } catch (err) {
+    console.error('loadFiles error:', err);
+  }
+}
+
+function renderFiles(files) {
+  const list = document.getElementById('files-list');
+  if (!files || files.length === 0) {
+    list.innerHTML = `
+      <div class="empty">
+        <span class="emoji">🎬</span>
+        Aucune vidéo disponible.<br>Collez une URL YouTube ci-dessus pour commencer.
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = files.map(renderFileCard).join('');
+
+  // Start countdown refresh
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(refreshCountdowns, 60_000);
+}
+
+function refreshCountdowns() {
+  for (const file of _allFiles) {
+    const el = document.getElementById(`expiry-${file.file_id}`);
+    if (!el) continue;
+    const countdown = formatCountdown(file.expires_at);
+    const urgent = isUrgent(file.expires_at);
+    el.className = `expiry-badge${urgent ? ' urgent' : ''}`;
+    el.textContent = `⏱ ${countdown}`;
+  }
+}
+
+async function downloadFile(fileId) {
+  window.location.href = `/api/download/${fileId}?session_id=${SESSION_ID}`;
+}
+
+async function deleteFile(fileId) {
+  const card = document.getElementById(`file-${fileId}`);
+  if (!card) return;
+
+  // Optimistic removal
+  card.style.opacity = '0.4';
+  card.style.pointerEvents = 'none';
+
+  try {
+    await apiRequest('DELETE', `/api/files/${fileId}?session_id=${SESSION_ID}`);
+    _allFiles = _allFiles.filter((f) => f.file_id !== fileId);
+    renderFiles(_allFiles);
+  } catch (err) {
+    card.style.opacity = '';
+    card.style.pointerEvents = '';
+    showFormMsg('error', `Erreur suppression : ${err.message}`);
+  }
+}
+
+/* ===================================================================
+   FORM SUBMISSION
+   =================================================================== */
+
+function showFormMsg(type, text) {
+  const el = document.getElementById('form-msg');
+  el.className = `msg msg-${type}`;
+  el.textContent = text;
+  el.hidden = false;
+}
+
+function hideFormMsg() {
+  document.getElementById('form-msg').hidden = true;
+}
+
+document.getElementById('launch-btn').addEventListener('click', async () => {
+  const input = document.getElementById('url-input');
+  const url = input.value.trim();
+
+  if (!url) {
+    showFormMsg('error', 'Veuillez coller une URL YouTube.');
+    return;
+  }
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    showFormMsg('error', 'URL invalide — doit commencer par https://');
+    return;
+  }
+
+  // Temporary "démarrage" state before lockForm takes over
+  const btn = document.getElementById('launch-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Démarrage…';
+  hideFormMsg();
+
+  try {
+    const result = await apiRequest('POST', '/api/jobs', {
+      url,
+      session_id: SESSION_ID,
+    });
+
+    input.value = '';
+    showFormMsg('success', 'Traitement lancé ! Suivez la progression ci-dessous.');
+    trackJob(result.job_id); // locks form, persists to localStorage, starts polling
+  } catch (err) {
+    // On API error: re-enable form so user can retry
+    showFormMsg('error', `Erreur : ${err.message}`);
+    btn.disabled = false;
+    btn.textContent = 'Lancer le traitement';
+  }
+});
+
+// Allow Enter key in URL field
+document.getElementById('url-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('launch-btn').click();
+});
+
+/* ===================================================================
+   INIT
+   =================================================================== */
+
+(async function init() {
+  await loadFiles();
+
+  // Restore active job across page refresh
+  const storedJobId = getStoredActiveJob();
+  if (storedJobId) {
+    try {
+      const job = await apiRequest('GET', `/api/jobs/${storedJobId}?session_id=${SESSION_ID}`);
+      if (['pending', 'downloading', 'processing'].includes(job.status)) {
+        // Job still running — lock form and resume polling
+        lockForm();
+        upsertJobCard(job);
+        _startPolling(storedJobId);
+      } else {
+        // Job finished while page was closed — just clean up
+        clearActiveJob();
+        if (job.status === 'done') await loadFiles();
+      }
+
+    } catch {
+      clearActiveJob(); // Job not found or network error — unblock
+    }
+  }
+})();
+</script>
+</body>
+</html>
