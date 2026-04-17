@@ -77,14 +77,22 @@ Sauvegardez (`Ctrl+S`) et fermez le Bloc-notes.
 
 Double-cliquez sur **`start.bat`**.
 
-### Étape 7 — Utiliser YumsCUT
+Le navigateur s'ouvre automatiquement sur l'interface YumsCUT.
 
-Ouvrez votre navigateur et allez sur :
-```
-http://localhost:8000
-```
+---
 
-Collez une URL YouTube et cliquez sur **Lancer le traitement**.
+## Utilisation quotidienne
+
+| Action | Comment faire |
+|---|---|
+| **Lancer YumsCUT** | Double-cliquez sur `start.bat` |
+| **Utiliser l'app** | Le navigateur s'ouvre tout seul — sinon allez sur `http://VOTRE-IP:2309` |
+| **Garder YumsCUT actif** | **Minimisez** la fenêtre noire (terminal) — ne la fermez pas |
+| **Arrêter YumsCUT** | Fermez la fenêtre noire du terminal |
+| **Relancer** | Double-cliquez sur `start.bat` (ferme l'ancienne instance automatiquement) |
+
+> L'adresse exacte est affichée dans la fenêtre du terminal au démarrage.  
+> Elle ressemble à `http://192.168.1.X:2309` — utilisez cette adresse depuis n'importe quel appareil de votre réseau (téléphone, tablette, autre PC).
 
 ---
 
@@ -118,10 +126,10 @@ cp .env.example .env
 # Éditez .env et renseignez les clés VAPID générées à l'étape précédente
 
 # 7. Lancer l'application
-uvicorn main:app --host 0.0.0.0 --port 8000
+uvicorn main:app --host 0.0.0.0 --port 2309
 ```
 
-Ouvrez ensuite `http://localhost:8000` dans votre navigateur.
+Ouvrez ensuite `http://localhost:2309` dans votre navigateur.
 
 ---
 
@@ -144,8 +152,8 @@ Ouvrez ensuite `http://localhost:8000` dans votre navigateur.
 
 Consultez le nombre de vidéos traitées et de segments créés :
 
-```bash
-curl http://localhost:8000/api/stats
+```
+http://VOTRE-IP:2309/api/stats
 ```
 
 Réponse :
@@ -163,20 +171,22 @@ Les statistiques sont stockées dans `data/stats.json` et persistent entre les r
 
 ## Démarrage automatique (optionnel)
 
-### Windows — Planificateur de tâches
-
 Pour que YumsCUT démarre automatiquement à l'ouverture de session Windows :
 
 1. Appuyez sur `Win+R`, tapez `taskschd.msc` et validez
 2. Cliquez sur **Créer une tâche**
 3. Onglet **Général** : nom = `YumsCUT`
 4. Onglet **Déclencheurs** : Nouveau → Au démarrage de session
-5. Onglet **Actions** : Nouveau → Programme = chemin vers `venv\Scripts\uvicorn.exe`, Arguments = `main:app --host 0.0.0.0 --port 8000`, Démarrer dans = dossier du projet
+5. Onglet **Actions** : Nouveau → Programme = chemin vers `venv\Scripts\uvicorn.exe`, Arguments = `main:app --host 0.0.0.0 --port 2309`, Démarrer dans = dossier du projet
 6. Cliquez OK
 
-### Linux — systemd
+---
 
-Consultez [INSTALL.md](INSTALL.md) pour la configuration complète sur serveur Linux.
+## Désinstallation
+
+Double-cliquez sur **`uninstall.bat`** dans le dossier de l'application.
+
+Le script va vous demander confirmation, arrêter YumsCUT s'il est en cours d'exécution, puis supprimer tous les fichiers de l'application.
 
 ---
 
