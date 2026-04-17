@@ -62,6 +62,12 @@ exit /b 1
 :VENV_EXISTS
 echo [OK] Environnement virtuel deja present.
 
+REM == 4. Creer le dossier data ==
+if not exist "data\" (
+    mkdir data
+    echo [OK] Dossier data cree.
+)
+
 REM == 4. Installer les dependances ==
 :INSTALL_DEPS
 echo.
