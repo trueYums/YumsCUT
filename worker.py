@@ -24,6 +24,10 @@ DATA_DIR = os.getenv("DATA_DIR", "/data")
 FONT_PATH = os.getenv("FONT_PATH", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
 STATS_FILE = os.path.join(DATA_DIR, "stats.json")
 
+# Optional: browser to pull YouTube cookies from (edge, chrome, firefox…)
+# Set YTDLP_BROWSER=edge in .env to bypass YouTube bot detection.
+_YTDLP_BROWSER = os.getenv("YTDLP_BROWSER", "").strip()
+
 
 # ---------------------------------------------------------------------------
 # Stats
@@ -154,6 +158,13 @@ def get_user_dir(session_id: str) -> Path:
 # yt-dlp helpers
 # ---------------------------------------------------------------------------
 
+def _ytdlp_cookie_args() -> list[str]:
+    """Return --cookies-from-browser args if YTDLP_BROWSER is configured."""
+    if _YTDLP_BROWSER:
+        return ["--cookies-from-browser", _YTDLP_BROWSER]
+    return []
+
+
 def get_video_info(url: str) -> dict:
     """Fetch metadata without downloading the video."""
     cmd = [
@@ -161,6 +172,7 @@ def get_video_info(url: str) -> dict:
         "--dump-json",
         "--no-playlist",
         "--no-warnings",
+        *_ytdlp_cookie_args(),
         url,
     ]
     logger.info("Fetching metadata: %s", url)
@@ -179,6 +191,7 @@ def download_video(job_id: str, url: str, output_path: str) -> str:
         "yt-dlp",
         "--no-playlist",
         "--no-warnings",
+        *_ytdlp_cookie_args(),
         "-f",
         (
             "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]"
