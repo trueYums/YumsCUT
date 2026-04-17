@@ -62,12 +62,6 @@ exit /b 1
 :VENV_EXISTS
 echo [OK] Environnement virtuel deja present.
 
-REM == 4. Creer le dossier data ==
-if not exist "data\" (
-    mkdir data
-    echo [OK] Dossier data cree.
-)
-
 REM == 4. Installer les dependances ==
 :INSTALL_DEPS
 echo.
@@ -77,7 +71,24 @@ pip install -q --no-cache-dir -r requirements.txt
 pip install -q -U yt-dlp
 echo [OK] Dependances installees.
 
-REM == 5. Configurer .env ==
+REM == 5. Creer le dossier data si absent ==
+if not exist "data\" (
+    mkdir data
+    echo [OK] Dossier data cree.
+)
+
+REM == Copier la police dans le dossier fonts\ ==
+if not exist "fonts\" mkdir fonts
+if not exist "fonts\arialbd.ttf" (
+    if exist "C:\Windows\Fonts\arialbd.ttf" (
+        copy /Y "C:\Windows\Fonts\arialbd.ttf" "fonts\arialbd.ttf" >nul
+        echo [OK] Police copiee dans fonts\arialbd.ttf
+    ) else (
+        echo [INFO] arialbd.ttf non trouve - la police par defaut sera utilisee.
+    )
+)
+
+REM == 6. Configurer .env ==
 if exist ".env" goto ENV_EXISTS
 echo.
 echo [3/4] Creation du fichier de configuration .env...
@@ -89,13 +100,16 @@ set APPDIR=%~dp0
     echo.
     echo DB_PATH=%APPDIR%data\app.db
     echo DATA_DIR=%APPDIR%data
-    echo FONT_PATH=C:\Windows\Fonts\arialbd.ttf
+    echo FONT_PATH=fonts/arialbd.ttf
 ) > .env
 echo [OK] Fichier .env cree.
 goto GEN_KEYS
 
 :ENV_EXISTS
 echo [OK] Fichier .env deja present.
+REM Mettre a jour FONT_PATH si toujours sur le chemin absolu Windows
+powershell -NoProfile -Command "(Get-Content '.env') -replace 'FONT_PATH=C:\\\\Windows\\\\Fonts\\\\arialbd.ttf','FONT_PATH=fonts/arialbd.ttf' | Set-Content '.env'"
+echo [OK] FONT_PATH mis a jour vers fonts/arialbd.ttf
 
 REM == 6. Generer les cles VAPID ==
 :GEN_KEYS
@@ -121,6 +135,6 @@ echo   Installation terminee !
 echo  ============================================
 echo.
 echo  Une fois .env rempli et sauvegarde, lancez start.bat
-echo  puis ouvrez http://localhost:8000 dans votre navigateur.
+echo  Le navigateur s'ouvrira automatiquement sur l'application.
 echo.
 pause

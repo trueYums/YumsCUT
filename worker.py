@@ -7,13 +7,18 @@ import logging
 import os
 import re
 import subprocess
+import tempfile
 import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
+from PIL import Image, ImageDraw, ImageFont
+
 logger = logging.getLogger(__name__)
+
+_WORKER_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DATA_DIR = os.getenv("DATA_DIR", "/data")
 FONT_PATH = os.getenv("FONT_PATH", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
@@ -121,17 +126,14 @@ def _run_tracked(job_id: str, cmd: list, timeout: int) -> tuple[int, str, str]:
 # Path helpers
 # ---------------------------------------------------------------------------
 
-def _ffmpeg_path(path: str) -> str:
-    """
-    Escape a filesystem path for embedding inside an ffmpeg filter_complex string.
-    ffmpeg uses ':' as the option separator and '\\' as the escape char, so:
-      - backslashes → forward slashes
-      - ':' (Windows drive letter) → '\\:'
-    """
-    path = path.replace("\\", "/")
-    # Escape the colon in Windows drive letters (e.g. C:/ → C\:/)
-    path = re.sub(r"^([A-Za-z]):/", r"\1\\:/", path)
-    return path
+def _resolve_font_path() -> str | None:
+    """Return absolute path to the font file, or None if not found."""
+    fp = FONT_PATH
+    if not fp:
+        return None
+    if not os.path.isabs(fp):
+        fp = os.path.join(_WORKER_DIR, fp)
+    return fp if os.path.exists(fp) else None
 
 # Segment timing constants
 TARGET_SECS = 179.0   # 2 min 59 s
@@ -291,7 +293,7 @@ def calculate_segments(total: float) -> list[tuple[float, float]]:
 # ---------------------------------------------------------------------------
 
 def _wrap_text(text: str, max_chars: int) -> list[str]:
-    """Word-wrap text to max_chars per line. Returns list of raw (unescaped) lines."""
+    """Word-wrap text to max_chars per line. Returns list of lines."""
     words = text.split()
     lines: list[str] = []
     current = ""
@@ -308,22 +310,67 @@ def _wrap_text(text: str, max_chars: int) -> list[str]:
     return lines or [""]
 
 
-def _escape_drawtext(text: str) -> str:
+def _draw_text_box(
+    draw: "ImageDraw.ImageDraw",
+    text: str,
+    font: "ImageFont.FreeTypeFont",
+    y: int,
+    canvas_w: int,
+    pad: int,
+) -> None:
+    """Draw text centred horizontally with a white semi-transparent box behind it."""
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+    x = (canvas_w - tw) // 2
+    draw.rectangle(
+        [x - pad, y - pad, x + tw + pad, y + th + pad],
+        fill=(255, 255, 255, 235),
+    )
+    draw.text((x, y), text, font=font, fill=(0, 0, 0, 255))
+
+
+def _make_text_overlay(
+    title_lines: list[str],
+    part_text: str,
+    font_path: str | None,
+    width: int = 1080,
+    height: int = 1920,
+) -> str:
     """
-    Escape text for the ffmpeg drawtext `text=` option embedded in filter_complex.
-    The filter_complex string is passed as a single subprocess arg (no shell),
-    so only ffmpeg-level escaping is needed.
+    Render title lines + part number onto a transparent RGBA PNG (1080×1920).
+    Returns the path of a temporary file — caller must delete it after use.
+    Layout mirrors the old drawtext layout:
+      - title lines : fontsize 54, centred in upper blurred zone (≈ y=328)
+      - part text   : fontsize 58, y=1560
     """
-    # Escape order matters: backslash first
-    text = text.replace("\\", "\\\\")
-    text = text.replace("'",  "\\'")
-    text = text.replace(":",  "\\:")
-    text = text.replace("[",  "\\[")
-    text = text.replace("]",  "\\]")
-    text = text.replace(",",  "\\,")
-    text = text.replace(";",  "\\;")
-    text = text.replace("%",  "%%")
-    return text
+    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    def load_font(size: int) -> "ImageFont.FreeTypeFont":
+        if font_path:
+            try:
+                return ImageFont.truetype(font_path, size)
+            except Exception:
+                pass
+        return ImageFont.load_default()
+
+    font_title = load_font(54)
+    font_part = load_font(58)
+
+    line_height = 70
+    total_h = len(title_lines) * line_height - (line_height - 54)
+    start_y = max(20, 328 - total_h // 2)
+
+    for i, line in enumerate(title_lines):
+        _draw_text_box(draw, line, font_title, start_y + i * line_height, width, pad=16)
+
+    _draw_text_box(draw, part_text, font_part, 1560, width, pad=18)
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    img.save(tmp.name, "PNG")
+    tmp.close()
+    return tmp.name
 
 
 def encode_segment(
@@ -346,111 +393,67 @@ def encode_segment(
     - Top text:   video title (≤40 chars), fontsize 48, centred in upper blurred zone
     - Bottom text: "Partie X / N", fontsize 52, centred in lower blurred zone
     """
-    # Wrap title to ~28 chars/line, one drawtext filter per line
+    # Wrap title, then render title + part number as a transparent PNG overlay.
+    # This avoids ffmpeg's drawtext filter entirely — no fontfile= path escaping
+    # issues on Windows (ffmpeg libavfilter 11.x cannot handle drive-letter colons).
     title_lines = _wrap_text(title[:120], max_chars=28)
-    part_text = _escape_drawtext(f"Partie {part_number} / {total_parts}")
+    part_text = f"Partie {part_number} / {total_parts}"
+    font_path = _resolve_font_path()
 
-    # Font selection: if FONT_PATH env var is set AND the file exists, use fontfile=
-    # Otherwise rely on fontconfig (default font). This ensures cross-platform compat:
-    # Windows paths with drive letters break ffmpeg's filter parser, so we skip fontfile
-    # on Windows and let ffmpeg pick the system font via fontconfig.
-    font_opt = ""
-    font_path = FONT_PATH  # from env, already resolved
-    if font_path and os.path.exists(font_path):
-        clean_path = font_path.replace("\\", "/")
-        # ffmpeg 11.x filter parser cannot handle Windows drive-letter colons
-        # (C:/...) in option values — neither \: escaping nor single-quote
-        # quoting works. Skip fontfile on Windows paths; ffmpeg falls back to
-        # its built-in default font. On Linux (no colon in path) fontfile works.
-        if ":" not in clean_path:
-            font_opt = f"fontfile={clean_path}:"
+    overlay_path: str | None = None
+    try:
+        overlay_path = _make_text_overlay(title_lines, part_text, font_path)
 
-    # Layout:
-    # Upper blurred zone: 0–656 px   → center at y=328
-    # Lower blurred zone: 1264–1920 px → center at y=1592
-    # fontsize=54 → line height ≈ 70 px (font + padding)
-    line_height = 70
-    total_title_height = len(title_lines) * line_height - (line_height - 54)
-    title_start_y = max(20, 328 - total_title_height // 2)
-
-    # Build filter graph: base layers → one drawtext per title line → part text → [v]
-    filter_parts = [
-        "[0:v]split=2[bg][fg];",
-        "[bg]scale=1080:1920:force_original_aspect_ratio=increase,"
-        "crop=1080:1920,"
-        "boxblur=luma_radius=40:luma_power=2[blurred];",
-        "[fg]scale=1080:1920:force_original_aspect_ratio=decrease[scaled];",
-        "[blurred][scaled]overlay=x=(W-w)/2:y=(H-h)/2[composed];",
-    ]
-
-    current_label = "composed"
-    for i, line in enumerate(title_lines):
-        escaped_line = _escape_drawtext(line)
-        y = title_start_y + i * line_height
-        is_last = (i == len(title_lines) - 1)
-        out_label = "titled" if is_last else f"dt{i}"
-        filter_parts.append(
-            f"[{current_label}]drawtext="
-            f"{font_opt}"
-            f"text={escaped_line}:"
-            "fontcolor=black:"
-            "fontsize=54:"
-            "x=(w-text_w)/2:"
-            f"y={y}:"
-            "box=1:"
-            "boxcolor=white@0.92:"
-            f"boxborderw=16[{out_label}];"
+        # Simple filter graph: background blur + foreground scale/overlay + text overlay
+        filter_complex = (
+            "[0:v]split=2[bg][fg];"
+            "[bg]scale=1080:1920:force_original_aspect_ratio=increase,"
+            "crop=1080:1920,"
+            "boxblur=luma_radius=40:luma_power=2[blurred];"
+            "[fg]scale=1080:1920:force_original_aspect_ratio=decrease[scaled];"
+            "[blurred][scaled]overlay=x=(W-w)/2:y=(H-h)/2[composed];"
+            "[composed][1:v]overlay=0:0[v]"
         )
-        current_label = out_label
 
-    # Part number text at the bottom
-    filter_parts.append(
-        f"[{current_label}]drawtext="
-        f"{font_opt}"
-        f"text={part_text}:"
-        "fontcolor=black:"
-        "fontsize=58:"
-        "x=(w-text_w)/2:"
-        "y=1560:"
-        "box=1:"
-        "boxcolor=white@0.92:"
-        "boxborderw=18"
-        "[v]"
-    )
+        cmd = [
+            "ffmpeg", "-y",
+            "-ss", str(start),
+            "-i", input_path,      # input 0: video
+            "-loop", "1",
+            "-i", overlay_path,    # input 1: text overlay PNG
+            "-t", str(duration),   # output duration
+            "-filter_complex", filter_complex,
+            "-map", "[v]",
+        ]
 
-    filter_complex = "".join(filter_parts)
+        if with_audio:
+            cmd += ["-map", "0:a?", "-c:a", "aac", "-b:a", "128k"]
 
-    cmd = [
-        "ffmpeg", "-y",
-        "-ss", str(start),
-        "-i", input_path,
-        "-t", str(duration),
-        "-filter_complex", filter_complex,
-        "-map", "[v]",
-    ]
+        cmd += [
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-crf", "23",
+            "-movflags", "+faststart",
+            output_path,
+        ]
 
-    if with_audio:
-        cmd += ["-map", "0:a?", "-c:a", "aac", "-b:a", "128k"]
-
-    cmd += [
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "23",
-        "-movflags", "+faststart",
-        output_path,
-    ]
-
-    logger.info(
-        "Encoding segment %d/%d  [%.2fs → %.2fs]",
-        part_number, total_parts, start, start + duration,
-    )
-    rc, _, stderr = _run_tracked(job_id, cmd, timeout=1800)
-    if rc != 0:
-        logger.error("FFmpeg stderr (last 2000 chars):\n%s", stderr[-2000:])
-        raise RuntimeError(
-            f"FFmpeg failed on segment {part_number}/{total_parts}: "
-            f"{stderr[-400:].strip()}"
+        logger.info(
+            "Encoding segment %d/%d  [%.2fs → %.2fs]",
+            part_number, total_parts, start, start + duration,
         )
+        rc, _, stderr = _run_tracked(job_id, cmd, timeout=1800)
+        if rc != 0:
+            logger.error("FFmpeg stderr (last 2000 chars):\n%s", stderr[-2000:])
+            raise RuntimeError(
+                f"FFmpeg failed on segment {part_number}/{total_parts}: "
+                f"{stderr[-400:].strip()}"
+            )
+    finally:
+        if overlay_path and os.path.exists(overlay_path):
+            try:
+                os.remove(overlay_path)
+            except OSError:
+                pass
 
 
 # ---------------------------------------------------------------------------

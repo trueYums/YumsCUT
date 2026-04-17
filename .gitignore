@@ -10,6 +10,9 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Police copiée localement (Arial est propriétaire, non redistribuable)
+fonts/
+
 # Fichiers générés localement (chemins machine-spécifiques)
 lordcut_task.xml
 yumsCUT_task.xml
