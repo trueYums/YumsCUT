@@ -357,8 +357,11 @@ def encode_segment(
     font_opt = ""
     font_path = FONT_PATH  # from env, already resolved
     if font_path and os.path.exists(font_path):
-        # Use _ffmpeg_path to escape Windows drive-letter colons (C:/ → C\:/)
-        font_opt = f"fontfile={_ffmpeg_path(font_path)}:"
+        # Wrap path in ffmpeg level-1 single quotes so the colon in Windows
+        # drive letters (C:/...) is treated as literal, not as option separator.
+        # This works on all ffmpeg versions and on Linux too.
+        clean_path = font_path.replace("\\", "/").replace("'", "\\'")
+        font_opt = f"fontfile='{clean_path}':"
 
     # Layout:
     # Upper blurred zone: 0–656 px   → center at y=328
