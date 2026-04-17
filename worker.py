@@ -357,11 +357,13 @@ def encode_segment(
     font_opt = ""
     font_path = FONT_PATH  # from env, already resolved
     if font_path and os.path.exists(font_path):
-        # Wrap path in ffmpeg level-1 single quotes so the colon in Windows
-        # drive letters (C:/...) is treated as literal, not as option separator.
-        # This works on all ffmpeg versions and on Linux too.
-        clean_path = font_path.replace("\\", "/").replace("'", "\\'")
-        font_opt = f"fontfile='{clean_path}':"
+        clean_path = font_path.replace("\\", "/")
+        # ffmpeg 11.x filter parser cannot handle Windows drive-letter colons
+        # (C:/...) in option values — neither \: escaping nor single-quote
+        # quoting works. Skip fontfile on Windows paths; ffmpeg falls back to
+        # its built-in default font. On Linux (no colon in path) fontfile works.
+        if ":" not in clean_path:
+            font_opt = f"fontfile={clean_path}:"
 
     # Layout:
     # Upper blurred zone: 0–656 px   → center at y=328
