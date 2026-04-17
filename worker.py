@@ -24,9 +24,27 @@ DATA_DIR = os.getenv("DATA_DIR", "/data")
 FONT_PATH = os.getenv("FONT_PATH", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
 STATS_FILE = os.path.join(DATA_DIR, "stats.json")
 
-# Optional: browser to pull YouTube cookies from (edge, chrome, firefox…)
-# Set YTDLP_BROWSER=edge in .env to bypass YouTube bot detection.
+# Optional: browser to pull YouTube cookies from (chrome, edge, firefox…)
+# Set YTDLP_BROWSER=chrome in .env to bypass YouTube bot detection.
+# Set YTDLP_BROWSER=auto to let YumsCUT pick the first available browser.
 _YTDLP_BROWSER = os.getenv("YTDLP_BROWSER", "").strip()
+
+
+def _detect_browser() -> str | None:
+    """Return the name of the first browser that has a local profile."""
+    appdata_local = os.environ.get("LOCALAPPDATA", "")
+    appdata_roam = os.environ.get("APPDATA", "")
+    candidates = [
+        ("chrome",  os.path.join(appdata_local, "Google", "Chrome", "User Data")),
+        ("edge",    os.path.join(appdata_local, "Microsoft", "Edge", "User Data")),
+        ("brave",   os.path.join(appdata_local, "BraveSoftware", "Brave-Browser", "User Data")),
+        ("opera",   os.path.join(appdata_roam,  "Opera Software", "Opera Stable")),
+        ("firefox", os.path.join(appdata_roam,  "Mozilla", "Firefox", "Profiles")),
+    ]
+    for name, path in candidates:
+        if os.path.isdir(path):
+            return name
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -159,9 +177,13 @@ def get_user_dir(session_id: str) -> Path:
 # ---------------------------------------------------------------------------
 
 def _ytdlp_cookie_args() -> list[str]:
-    """Return --cookies-from-browser args if YTDLP_BROWSER is configured."""
-    if _YTDLP_BROWSER:
-        return ["--cookies-from-browser", _YTDLP_BROWSER]
+    """Return --cookies-from-browser args based on YTDLP_BROWSER config."""
+    browser = _YTDLP_BROWSER
+    if browser == "auto":
+        browser = _detect_browser() or ""
+    if browser:
+        logger.debug("yt-dlp: using cookies from browser '%s'", browser)
+        return ["--cookies-from-browser", browser]
     return []
 
 

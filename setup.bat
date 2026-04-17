@@ -101,7 +101,7 @@ set APPDIR=%~dp0
     echo DB_PATH=%APPDIR%data\app.db
     echo DATA_DIR=%APPDIR%data
     echo FONT_PATH=fonts/arialbd.ttf
-    echo YTDLP_BROWSER=edge
+    echo YTDLP_BROWSER=auto
 ) > .env
 echo [OK] Fichier .env cree.
 goto GEN_KEYS
